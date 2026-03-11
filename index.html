@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus DC — Data Center Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-dark: #0d1117;
+      --bg-panel: #161b22;
+      --bg-elevated: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #00d4aa;
+      --accent-dim: #00d4aa33;
+      --danger: #f85149;
+      --warning: #d29922;
+      --success: #3fb950;
+      --radius: 10px;
+      --sidebar-w: 260px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      overflow-x: hidden;
+    }
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+      flex-shrink: 0;
+    }
+    .logo {
+      padding: 0 24px 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .logo h1 { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+    .logo span { font-size: 0.7rem; color: var(--text-muted); font-weight: 400; }
+    .nav-section { margin-bottom: 16px; }
+    .nav-section-title {
+      font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--text-muted); padding: 0 24px 8px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+      color: var(--text-muted); text-decoration: none; font-size: 0.9rem;
+      border-left: 3px solid transparent; cursor: pointer; transition: all 0.2s;
+    }
+    .nav-item:hover { color: var(--text); background: var(--bg-elevated); }
+    .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-dim); }
+    .nav-item svg { width: 20px; height: 20px; flex-shrink: 0; opacity: 0.8; }
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .topbar {
+      height: 56px; padding: 0 28px; display: flex; align-items: center; justify-content: space-between;
+      background: var(--bg-panel); border-bottom: 1px solid var(--border);
+    }
+    .topbar h2 { font-size: 1.1rem; font-weight: 600; }
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+    .topbar-right .user { font-size: 0.85rem; color: var(--text-muted); }
+    .badge {
+      font-size: 0.7rem; padding: 2px 8px; border-radius: 999px;
+      background: var(--success); color: var(--bg-dark); font-weight: 600;
+    }
+    .content { flex: 1; padding: 24px; overflow-y: auto; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .kpi-card {
+      background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 20px; transition: border-color 0.2s;
+    }
+    .kpi-card:hover { border-color: var(--accent); }
+    .kpi-card .label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
+    .kpi-card .value { font-size: 1.75rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text); }
+    .kpi-card .value.accent { color: var(--accent); }
+    .kpi-card .value.success { color: var(--success); }
+    .kpi-card .sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+    .card {
+      background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 20px; margin-bottom: 20px;
+    }
+    .card-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+    .chart-wrap { height: 220px; position: relative; }
+    .chart-legend-inline { display: flex; gap: 16px; margin-bottom: 10px; font-size: 0.75rem; color: var(--text-muted); flex-wrap: wrap; }
+    .chart-legend-inline span { display: flex; align-items: center; gap: 6px; }
+    .chart-legend-inline .line-solid { width: 20px; height: 2px; background: var(--accent); }
+    .chart-legend-inline .line-dash { width: 20px; height: 2px; background: repeating-linear-gradient(90deg, #d29922 0, #d29922 4px, transparent 4px, transparent 8px); }
+    .chart-legend-inline .line-danger { width: 20px; height: 2px; background: var(--danger); }
+    .alert-list { list-style: none; }
+    .alert-item {
+      display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .alert-item:last-child { border-bottom: none; }
+    .alert-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
+    .alert-dot.critical { background: var(--danger); }
+    .alert-dot.warning { background: var(--warning); }
+    .alert-dot.info { background: var(--accent); }
+    .alert-time { color: var(--text-muted); font-size: 0.75rem; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+    .status-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--success); }
+    .status-dot.warn { background: var(--warning); }
+    .status-dot.err { background: var(--danger); }
+    .gauge-wrap { text-align: center; padding: 20px; }
+    .gauge-value { font-size: 2rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+    .rack-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+    .rack-cell {
+      aspect-ratio: 1; background: var(--bg-elevated); border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; color: var(--text-muted);
+      border: 1px solid var(--border); cursor: pointer; transition: all 0.2s;
+    }
+    .rack-cell:hover { border-color: var(--accent); color: var(--text); }
+    .rack-cell.util-70 { background: var(--accent-dim); color: var(--accent); }
+    .rack-cell.util-90 { background: rgba(210,153,34,0.2); color: var(--warning); }
+    .rack-cell.util-100 { background: rgba(248,81,73,0.2); color: var(--danger); }
+    .rack-cell .rack-temp { font-size:0.6rem; opacity:0.9; display:block; margin-top:1px; }
+    .rack-cell.animate { transition: background 0.8s ease, color 0.5s ease, box-shadow 0.5s ease; }
+    .rack-cell.pulse { animation: rackPulse 2.5s ease-in-out infinite; }
+    @keyframes rackPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.85; } }
+    .heatmap-time { display: grid; gap: 2px; font-size: 0.7rem; }
+    .heatmap-time .row-label { color: var(--text-muted); padding: 4px 8px 0 0; text-align: right; }
+    .heatmap-time .cell { width: 100%; aspect-ratio: 1; max-width: 20px; border-radius: 3px; transition: transform 0.2s; }
+    .heatmap-time .cell:hover { transform: scale(1.15); }
+    .heatmap-legend { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.75rem; color: var(--text-muted); }
+    .heatmap-legend .bar { height: 8px; border-radius: 4px; flex: 1; max-width: 120px; }
+    .incident-timeline { display: flex; align-items: flex-end; gap: 4px; height: 100px; padding: 16px 0; }
+    .incident-timeline .slot { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 40px; }
+    .incident-timeline .bubble { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 600; color: #0d1117; flex-shrink: 0; transition: transform 0.2s; }
+    .incident-timeline .bubble:hover { transform: scale(1.2); }
+    .incident-timeline .bubble.preventive { background: var(--warning); box-shadow: 0 0 12px rgba(210,153,34,0.5); }
+    .incident-timeline .bubble.critical { background: var(--danger); box-shadow: 0 0 12px rgba(248,81,73,0.5); }
+    .incident-timeline .bubble.info { background: var(--accent); box-shadow: 0 0 12px rgba(0,212,170,0.4); }
+    .incident-timeline .slot-label { font-size: 0.65rem; color: var(--text-muted); }
+    .incidents-by-type { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+    .incidents-by-type .type-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .incidents-by-type .type-dot.p { background: var(--warning); }
+    .incidents-by-type .type-dot.c { background: var(--danger); }
+    .incidents-by-type .type-dot.i { background: var(--accent); }
+    .card { box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+    .card-title { font-size: 0.95rem; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+    .time-range { display: flex; gap: 4px; align-items: center; }
+    .time-range span { font-size: 0.75rem; color: var(--text-muted); margin-right: 4px; }
+    .time-range button { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-muted); cursor: pointer; font-size: 0.8rem; }
+    .time-range button.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+    .time-range button:hover:not(.active) { color: var(--text); }
+    .ml-explanation { font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; padding: 8px 10px; background: var(--bg-elevated); border-radius: 6px; border-left: 3px solid var(--accent); }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+    .modal-overlay.open { display: flex; }
+    .modal-panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius); max-width: 420px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+    .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .modal-header h3 { font-size: 1rem; margin: 0; }
+    .modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; padding: 0 4px; line-height: 1; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 20px; }
+    .modal-body .kpi-card { margin-bottom: 12px; }
+    .modal-body .kpi-card:last-of-type { margin-bottom: 16px; }
+    .modal-alerts { font-size: 0.85rem; list-style: none; }
+    .modal-alerts li { padding: 6px 0; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+    .modal-alerts li:last-child { border-bottom: none; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+    .tab { padding: 8px 16px; border-radius: 8px; background: var(--bg-elevated); color: var(--text-muted); cursor: pointer; font-size: 0.9rem; border: 1px solid transparent; }
+    .tab:hover { color: var(--text); }
+    .tab.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+    .demo-footer { font-size: 0.75rem; color: var(--text-muted); padding: 16px 24px; border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">
+      <h1>Nexus DC</h1>
+      <span>Energy · Cooling · AI DCIM</span>
+    </div>
+    <nav class="nav-section">
+      <div class="nav-section-title">Platform</div>
+      <a class="nav-item active" data-page="overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Overview
+      </a>
+      <a class="nav-item" data-page="energy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        Energy
+      </a>
+      <a class="nav-item" data-page="cooling">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 0 0-4 4v2a4 4 0 0 0 8 0V6a4 4 0 0 0-4-4z"/><path d="M5 12a7 7 0 0 0 14 0"/><path d="M8 15h8"/><path d="M9 18h6"/></svg>
+        Cooling
+      </a>
+      <a class="nav-item" data-page="dcim">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/><path d="M6 16h.01M10 16h.01M14 16h.01M18 16h.01"/></svg>
+        Infrastructure
+      </a>
+    </nav>
+    <nav class="nav-section">
+      <div class="nav-section-title">Services</div>
+      <a class="nav-item" data-page="alerts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Alerts
+      </a>
+      <a class="nav-item" data-page="reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+        Reports
+      </a>
+      <a class="nav-item" data-page="economics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Economics &amp; pains
+      </a>
+      <a class="nav-item" data-page="market">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+        Market &amp; competitors
+      </a>
+    </nav>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <h2 id="page-title">Overview</h2>
+      <div class="topbar-right">
+        <div class="time-range" id="time-range-wrap">
+          <span>Period:</span>
+          <button type="button" class="active" data-range="24h">24 h</button>
+          <button type="button" data-range="7d">7 d</button>
+        </div>
+        <span class="badge">Demo · Moscow DC-1</span>
+        <span class="user">Operator</span>
+      </div>
+    </header>
+    <div class="content">
+      <div id="page-overview" class="page active">
+        <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:20px;">ML predicts load, temperature, and leak risk — we act on forecasts and prevent incidents proactively.</p>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="label">PUE</div>
+            <div class="value accent">1.24</div>
+            <div class="sub">target &lt;1.3</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Power, MW</div>
+            <div class="value">12.4</div>
+            <div class="sub">of 15.0 available</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Leak incidents</div>
+            <div class="value success">0</div>
+            <div class="sub">preventive triggers: 2</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Power: actual vs ML forecast</div>
+          <p class="chart-legend-inline"><span><i class="line-solid"></i> Actual</span><span><i class="line-dash"></i> ML forecast</span><span style="opacity:0.7">▢ 80% CI</span></p>
+          <div class="chart-wrap"><canvas id="chart-power"></canvas></div>
+          <p class="ml-explanation" id="explain-power">Why: model uses daily load profile and job schedule; 80% confidence interval.</p>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-title">Hall A temperature: actual vs ML forecast</div>
+            <p class="chart-legend-inline"><span><i class="line-solid"></i> Actual</span><span><i class="line-dash"></i> ML forecast</span><span style="opacity:0.7">▢ 80% CI</span></p>
+            <div class="chart-wrap"><canvas id="chart-temp-fact-ml"></canvas></div>
+            <p class="ml-explanation" id="explain-temp">Why: thermal inertia and load forecast from orchestrator; 80% CI.</p>
+          </div>
+          <div class="card">
+            <div class="card-title">Thermal map — Hall A (current)</div>
+            <div class="chart-wrap"><canvas id="chart-thermal"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Temperature by zone and hour (heatmap)</div>
+          <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:10px;">Rows — Hall A zones, columns — hours. Color = temperature °C. Hover for value.</p>
+          <div id="heatmap-time" class="heatmap-time"></div>
+          <div class="heatmap-legend">
+            <span>20 °C</span>
+            <div class="bar" style="background:linear-gradient(90deg, #00d4aa, #d29922, #f85149);"></div>
+            <span>30 °C</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Recent events</div>
+          <ul class="alert-list">
+            <li class="alert-item">
+              <span class="alert-dot info"></span>
+              <div><strong>Energy Orchestrator:</strong> shifting load to 23:00–06:00 would cut grid tariff by −8%.</div>
+              <span class="alert-time">10 min ago</span>
+            </li>
+            <li class="alert-item">
+              <span class="alert-dot warning"></span>
+              <div><strong>Cooling Guard:</strong> CDU-A3 — pressure +5%. Circuit inspection recommended.</div>
+              <span class="alert-time">1 h ago</span>
+            </li>
+            <li class="alert-item">
+              <span class="alert-dot info"></span>
+              <div><strong>AI DCIM:</strong> peak load forecast tomorrow 14:00 — 13.2 MW. Buffer OK.</div>
+              <span class="alert-time">2 h ago</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div id="page-energy" class="page">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="label">Grid connection</div>
+            <div class="value success">Stable</div>
+            <div class="sub">2 feeders, backup active</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Current consumption</div>
+            <div class="value">11.8 MW</div>
+            <div class="sub">daily peak: 12.1 MW</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Renewables</div>
+            <div class="value accent">34%</div>
+            <div class="sub">target by 2030: 50%</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Autonomy (BESS)</div>
+            <div class="value">4.2 h</div>
+            <div class="sub">at full load</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Energy Orchestrator — power sources</div>
+          <div class="status-row"><span class="status-dot"></span> Grid 1 (primary) — 6.2 MW</div>
+          <div class="status-row"><span class="status-dot"></span> Grid 2 (backup) — standby</div>
+          <div class="status-row"><span class="status-dot"></span> Gen — 100% ready</div>
+          <div class="status-row"><span class="status-dot"></span> BESS (batteries) — 98% charged</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Grid connection and microgrid</div>
+          <div class="status-row"><span class="status-dot"></span> Current site: connected, 2 feeders</div>
+          <div class="status-row"><span class="status-dot"></span> Expansion +50 MW: queue ~14 mo (forecast)</div>
+          <div class="status-row"><span class="status-dot"></span> BESS: 2 MWh — 98% charged</div>
+          <div class="status-row"><span class="status-dot"></span> Backup on grid outage: up to 4.2 h</div>
+          <div class="status-row"><span class="status-dot"></span> Load shifting: recommendations active</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Load forecast (7 days): actual vs ML</div>
+          <p class="chart-legend-inline"><span><i class="line-solid"></i> Actual</span><span><i class="line-dash"></i> ML forecast</span></p>
+          <div class="chart-wrap"><canvas id="chart-energy-forecast"></canvas></div>
+        </div>
+      </div>
+      <div id="page-cooling" class="page">
+        <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:20px;">We monitor temperature, pressure, and leaks; ML provides forecasts and RUL (remaining useful life). Preventive triggers instead of failures.</p>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="label">Leak risk</div>
+            <div class="value success">Low</div>
+            <div class="sub">all circuits normal</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">CDUs in operation</div>
+            <div class="value">8 / 8</div>
+            <div class="sub">outlet temp 18 °C</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Circuit pressure</div>
+            <div class="value accent">2.4 bar</div>
+            <div class="sub">normal 2.2–2.6</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Predictive triggers</div>
+            <div class="value">2</div>
+            <div class="sub">in 30 days (anomalies resolved)</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">CDU-A circuit temperature: actual vs ML forecast</div>
+          <p class="chart-legend-inline"><span><i class="line-solid"></i> Actual (sensors)</span><span><i class="line-dash"></i> ML forecast (HyperLoad / predictive model)</span></p>
+          <div class="chart-wrap"><canvas id="chart-cooling-temp-ml"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Leak risk over time: monitoring and ML forecast</div>
+          <p class="chart-legend-inline"><span><i class="line-solid"></i> Current risk index</span><span><i class="line-dash"></i> ML risk forecast</span><span><i class="line-danger"></i> Critical alert threshold (40%)</span></p>
+          <div class="chart-wrap"><canvas id="chart-leak-risk-time"></canvas></div>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-title">Cooling Guard — leak risk index (current)</div>
+            <div class="gauge-wrap">
+              <div class="gauge-value">12%</div>
+              <div class="sub">ML: normal, 72 h prediction — stable</div>
+              <div class="chart-wrap" style="height:100px"><canvas id="chart-leak-risk"></canvas></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">RUL (remaining useful life) — ML model</div>
+            <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">Estimate of remaining time to scheduled maintenance from pressure, vibration, coolant chemistry.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="kpi-card" style="padding:12px;"><div class="label">CDU-A3 (under watch)</div><div class="value accent" style="font-size:1.1rem;">18 days</div><div class="sub">RUL to recommended inspection</div></div>
+              <div class="kpi-card" style="padding:12px;"><div class="label">Quick Connectors, zone B</div><div class="value success" style="font-size:1.1rem;">340 days</div><div class="sub">RUL normal</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Circuit pressure: actual vs ML forecast</div>
+          <p class="chart-legend-inline"><span><i class="line-solid"></i> Actual</span><span><i class="line-dash"></i> ML forecast</span></p>
+          <div class="chart-wrap"><canvas id="chart-cooling"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Incidents: timeline and types</div>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">Events for leaks, temperature, and pressure. Bubble = incident (size and color by type). ML marks risk zones in advance.</p>
+          <div class="incident-timeline" id="incident-timeline-vis"></div>
+          <div class="heatmap-legend" style="justify-content:center;gap:16px;">
+            <span><span class="type-dot p"></span> Preventive</span>
+            <span><span class="type-dot c"></span> Critical</span>
+            <span><span class="type-dot i"></span> Info</span>
+          </div>
+          <div class="chart-wrap" style="height:140px;margin-top:16px;"><canvas id="chart-incidents-timeline"></canvas></div>
+          <ul class="alert-list" style="margin-top:12px;">
+            <li class="alert-item"><span class="alert-dot warning"></span><div><strong>Preventive:</strong> CDU-A3 — ML predicted pressure rise. Inspection scheduled, failure avoided.</div><span class="alert-time">2 days ago</span></li>
+            <li class="alert-item"><span class="alert-dot info"></span><div><strong>Preventive:</strong> Circuit B2 — vibration anomaly. Check passed, seals OK.</div><span class="alert-time">5 days ago</span></li>
+            <li class="alert-item"><span class="alert-dot info"></span><div><strong>Critical incidents in 30 days:</strong> 0</div><span class="alert-time">—</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title">Cooling units (CDU)</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px,1fr));gap:12px;">
+            <div class="status-row" style="border:1px solid var(--border);border-radius:8px;padding:12px;">CDU-A1 · 18 °C · 2.3 bar</div>
+            <div class="status-row" style="border:1px solid var(--border);border-radius:8px;padding:12px;">CDU-A2 · 18 °C · 2.4 bar</div>
+            <div class="status-row" style="border:1px solid var(--warning);border-radius:8px;padding:12px;">CDU-A3 · 19 °C · 2.5 bar &#x26A0;</div>
+            <div class="status-row" style="border:1px solid var(--border);border-radius:8px;padding:12px;">CDU-B1 … B5 · normal</div>
+          </div>
+        </div>
+      </div>
+      <div id="page-dcim" class="page">
+        <div class="card">
+          <div class="card-title">DCIM ↔ orchestrators (Pain 4)</div>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">Typical pain: DCIM has no shared API with Kubernetes — jobs run without thermal inertia awareness → local thermal spikes and GPU throttling.</p>
+          <div class="status-row"><span class="status-dot"></span> Nexus DC: DCIM–K8s API active, thermal inertia recommendations built in</div>
+          <div class="status-row"><span class="status-dot"></span> Jobs queued with temperature forecast: yes</div>
+        </div>
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));">
+          <div class="kpi-card">
+            <div class="label">GPU Throttling (24 h)</div>
+            <div class="value success">0</div>
+            <div class="sub">frequency reduction events</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Thermal inertia</div>
+            <div class="value accent">Accounted for</div>
+            <div class="sub">job start delay up to 15 min</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Data Center as a Unit of Compute — Hall A (live map)</div>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:12px;">Racks: color by load and temperature. Data animates over time — simulation of load and temperature change over 24 hours.</p>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+            <span style="font-size:0.85rem;color:var(--text-muted);">Time:</span>
+            <span id="rack-time-label" style="font-family:JetBrains Mono,monospace;font-weight:600;color:var(--accent);">00:00</span>
+            <button type="button" id="rack-play-pause" style="padding:4px 10px;border-radius:6px;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:0.8rem;">Start</button>
+          </div>
+          <div class="rack-grid" id="rack-grid"></div>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">Color: load (light → yellow → red). Cell label = temperature °C.</p>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-title">Rack utilization (top 10)</div>
+            <div class="chart-wrap"><canvas id="chart-racks"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Load distribution</div>
+            <div class="chart-wrap"><canvas id="chart-load"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div id="page-alerts" class="page">
+        <div class="tabs">
+          <button class="tab active" data-alert-tab="all">All</button>
+          <button class="tab" data-alert-tab="critical">Critical</button>
+          <button class="tab" data-alert-tab="warning">Warnings</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Alert log</div>
+          <ul class="alert-list" id="alerts-list">
+            <li class="alert-item"><span class="alert-dot warning"></span><div><strong>Cooling Guard:</strong> CDU-A3 — pressure +5%. Inspection recommended.</div><span class="alert-time">1 h</span></li>
+            <li class="alert-item"><span class="alert-dot info"></span><div><strong>Energy:</strong> Load shift recommendation.</div><span class="alert-time">10 min</span></li>
+            <li class="alert-item"><span class="alert-dot info"></span><div><strong>AI DCIM:</strong> Peak forecast 14:00 tomorrow.</div><span class="alert-time">2 h</span></li>
+            <li class="alert-item"><span class="alert-dot info"></span><div><strong>Cooling Guard:</strong> Preventive trigger — circuit B2. Check passed.</div><span class="alert-time">5 days</span></li>
+            <li class="alert-item"><span class="alert-dot info"></span><div><strong>AI DCIM:</strong> GPU Throttling in 24 h — 0 events (thermal inertia accounted for).</div><span class="alert-time">1 h</span></li>
+          </ul>
+        </div>
+      </div>
+      <div id="page-economics" class="page">
+        <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:20px;">Savings, delay risks, ROI, and industry pains — everything related to cost and strategy.</p>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="label">OPEX savings</div>
+            <div class="value success">18%</div>
+            <div class="sub">in last 30 days</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Cost of Delay (6 mo)</div>
+            <div class="value" style="font-size:1.4rem;">~$2.4M</div>
+            <div class="sub">if expansion delayed</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Predictive maintenance ROI</div>
+            <div class="value accent">267%</div>
+            <div class="sub">over 3 years (benchmark)</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Grid Interconnection (Grid Deadlock)</div>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">Typical interconnection delays by region: 18–24 mo (US NoVa), up to 36 mo (EU). Financial impact of delays.</p>
+          <div class="status-row"><span class="status-dot"></span> Current site: connected, 2 feeders</div>
+          <div class="status-row"><span class="status-dot warn"></span> Expansion +50 MW: queue ~14 mo (forecast)</div>
+          <div class="kpi-card" style="margin-top:12px;padding:12px;">
+            <div class="label">Cost of Delay (if delayed by 6 mo)</div>
+            <div class="value" style="font-size:1.25rem;">~$2.4M</div>
+            <div class="sub">lost revenue + SLA penalties</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Corrosion and Quick Connectors (Pain 1) — economics</div>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">Industry data: 35% of failures — metal corrosion, 28% — seal degradation. Predictive monitoring reduces risk and cost.</p>
+          <div class="two-col" style="gap:12px;">
+            <div class="kpi-card" style="padding:12px;"><div class="label">Circuit corrosion index</div><div class="value success" style="font-size:1.1rem;">Normal</div><div class="sub">coolant chemistry in spec</div></div>
+            <div class="kpi-card" style="padding:12px;"><div class="label">Seal degradation</div><div class="value" style="font-size:1.1rem;">2 units</div><div class="sub">scheduled inspection within 30 days</div></div>
+          </div>
+          <div style="margin-top:12px;font-size:0.8rem;color:var(--text-muted);">ROI from anti-corrosion and predictive measures: up to 267% over 3 years (benchmark per report).</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Key pains 2026 (per reports)</div>
+          <ul style="list-style:none;font-size:0.9rem;">
+            <li style="padding:8px 0;border-bottom:1px solid var(--border);"><span style="color:var(--danger);">●</span> <strong>Pain 1:</strong> Corrosion, Quick Connectors, seal degradation — predictive leak diagnostics</li>
+            <li style="padding:8px 0;border-bottom:1px solid var(--border);"><span style="color:var(--warning);">●</span> <strong>Pain 2:</strong> Grid Deadlock — delays 18–36 mo, Cost of Delay $2–4M/mo per 50 MW</li>
+            <li style="padding:8px 0;"><span style="color:var(--accent);">●</span> <strong>Pain 4:</strong> DCIM without API to K8s — thermal spikes, GPU throttling</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title">Competitor comparison: pain coverage</div>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">Per 2026 reports: three key pains (Grid, Cooling/leaks, DCIM–K8s). Taller bar = more pains addressed by the solution.</p>
+          <div class="chart-wrap" style="height:240px;"><canvas id="chart-competitors-pains"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Competitors and pain coverage (Market Intelligence)</div>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:16px;">Who addresses which pains. Nexus DC — single platform (Energy + Cooling + AI DCIM) with synergy &gt;3x ROI.</p>
+          <div class="competitor-table-wrap" style="overflow-x:auto;">
+            <table class="competitor-table" style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border);text-align:left;">
+                  <th style="padding:10px;">Company</th>
+                  <th style="padding:10px;">Solution (USP)</th>
+                  <th style="padding:10px;">Pains / focus</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;"><strong>Vertiv</strong></td><td style="padding:10px;">End-to-end direct-to-chip liquid cooling</td><td style="padding:10px;">Cooling, scale &gt;100 MW</td></tr>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;"><strong>Schneider Electric</strong></td><td style="padding:10px;">Modular, prefabricated high-density rooms</td><td style="padding:10px;">Deployment speed, cooling</td></tr>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;"><strong>Equinix</strong></td><td style="padding:10px;">Rollout DLC in 45 metros, 30 kW+ per rack</td><td style="padding:10px;">Hidden cooling costs, liquid cooling risks</td></tr>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;"><strong>Meukron Technologies</strong></td><td style="padding:10px;">Microfluidic thermal management (glass/polymer)</td><td style="padding:10px;">Micro-leaks, immersion cooling failures</td></tr>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;"><strong>Octorange</strong></td><td style="padding:10px;">Thermal management for batteries/energy systems</td><td style="padding:10px;">Microgrids, unpredictable OpEx</td></tr>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;"><strong>Aligned Data Centers</strong></td><td style="padding:10px;">Consolidation of 80+ sites for AI, liquid cooling</td><td style="padding:10px;">Interconnection delays, power shortage</td></tr>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;"><strong>Nexus DC</strong></td><td style="padding:10px;color:var(--accent);">Energy Orchestrator + Cooling Guard + AI DCIM</td><td style="padding:10px;">Grid Deadlock, leaks/corrosion, DCIM–K8s gap, thermal inertia</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div id="page-market" class="page">
+        <p style="color:var(--text-muted);font-size:0.9rem;">Positioning and competitors — see the <strong>Economics &amp; pains</strong> tab (pains 2026, Cost of Delay, ROI, competitor table).</p>
+      </div>
+      <div id="page-reports" class="page">
+        <div class="card">
+          <div class="card-title">Ready reports</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(240px,1fr));gap:16px;">
+            <div class="report-card" style="border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;">
+              <div style="font-weight:600;margin-bottom:4px;">PUE and energy efficiency</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);">Last 30 days</div>
+            </div>
+            <div class="report-card" style="border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;">
+              <div style="font-weight:600;margin-bottom:4px;">Cooling Guard — diagnostics</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);">Risks and predictive events</div>
+            </div>
+            <div class="report-card" style="border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;">
+              <div style="font-weight:600;margin-bottom:4px;">Load and orchestration</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);">AI DCIM — recommendations</div>
+            </div>
+            <div class="report-card" style="border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;">
+              <div style="font-weight:600;margin-bottom:4px;">Grid &amp; Cost of Delay</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);">Interconnection delays, risks, TCO</div>
+            </div>
+            <div class="report-card" style="border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;">
+              <div style="font-weight:600;margin-bottom:4px;">Competitive Intelligence</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);">Market, competitors, pains 2026</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <footer class="demo-footer">Demo mode · Nexus DC Platform (Energy Orchestrator + Cooling Guard + AI DCIM) · Sample data</footer>
+  </main>
+  <div class="modal-overlay" id="rack-modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h3 id="rack-modal-title">Rack R1</h3>
+        <button type="button" class="modal-close" id="rack-modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="kpi-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="kpi-card">
+            <div class="label">Load</div>
+            <div class="value" id="rack-modal-util">—</div>
+            <div class="sub">% of power</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Temperature</div>
+            <div class="value accent" id="rack-modal-temp">—</div>
+            <div class="sub">°C now</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">RUL</div>
+            <div class="value success" id="rack-modal-rul">—</div>
+            <div class="sub">to scheduled inspection</div>
+          </div>
+          <div class="kpi-card">
+            <div class="label">Zone</div>
+            <div class="value" id="rack-modal-zone">—</div>
+            <div class="sub">Hall A</div>
+          </div>
+        </div>
+        <div style="font-size:0.85rem;font-weight:600;margin-bottom:8px;">Rack events</div>
+        <ul class="modal-alerts" id="rack-modal-alerts"></ul>
+      </div>
+    </div>
+  </div>
+  <script>
+    const titles = { overview: 'Overview', energy: 'Energy', cooling: 'Cooling', dcim: 'Infrastructure', alerts: 'Alerts', reports: 'Reports', economics: 'Economics & pains', market: 'Market & competitors' };
+    document.querySelectorAll('.nav-item').forEach(el => {
+      el.addEventListener('click', e => {
+        e.preventDefault();
+        const page = el.dataset.page;
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+        const pageEl = document.getElementById('page-' + page);
+        if (pageEl) pageEl.classList.add('active');
+        document.getElementById('page-title').textContent = titles[page] || page;
+      });
+    });
+    function tempToColor(t) {
+      const x = Math.max(0, Math.min(1, (t - 20) / 10));
+      const r = Math.round(0 + (248-0)*x);
+      const g = Math.round(212 + (81-212)*x);
+      const b = Math.round(170 + (73-170)*x);
+      return 'rgb(' + r + ',' + g + ',' + b + ')';
+    }
+    const heatmapEl = document.getElementById('heatmap-time');
+    if (heatmapEl) {
+      const zones = 8;
+      const hours = 24;
+      const labels = ['A1','A2','A3','A4','A5','A6','A7','A8'];
+      let html = '<div></div>';
+      for (let h = 0; h < hours; h++) html += '<div class="slot-label" style="text-align:center">' + h + '</div>';
+      for (let z = 0; z < zones; z++) {
+        html += '<div class="row-label">' + labels[z] + '</div>';
+        for (let h = 0; h < hours; h++) {
+          const t = 22 + 3*Math.sin(h/24*Math.PI*2) + (z*0.4) + ((z*7+h)%5)*0.3;
+          const T = Math.round(Math.max(20, Math.min(30, t))*10)/10;
+          const col = tempToColor(T);
+          html += '<div class="cell" style="background:' + col + '" title="' + labels[z] + ' ' + h + ':00 — ' + T + ' °C"></div>';
+        }
+      }
+      heatmapEl.style.gridTemplateColumns = '32px ' + 'repeat(' + hours + ', minmax(0,1fr))';
+      heatmapEl.style.gridTemplateRows = 'auto repeat(' + zones + ', minmax(14px,1fr))';
+      heatmapEl.style.maxHeight = '220px';
+      heatmapEl.innerHTML = html;
+    }
+    const RACK_SNAPSHOTS = 6;
+    const rackGrid = document.getElementById('rack-grid');
+    const rackTimeLabel = document.getElementById('rack-time-label');
+    const rackPlayBtn = document.getElementById('rack-play-pause');
+    let rackData = [];
+    let rackIndex = 0;
+    let rackInterval = null;
+    if (rackGrid) {
+      const times = ['00:00','04:00','08:00','12:00','16:00','20:00'];
+      for (let i = 1; i <= 48; i++) {
+        const snap = [];
+        for (let s = 0; s < RACK_SNAPSHOTS; s++) {
+          const util = 58 + Math.sin(s/ RACK_SNAPSHOTS * Math.PI * 2 + i*0.1) * 15 + (i % 5) * 4;
+          const temp = 22 + Math.sin(s / RACK_SNAPSHOTS * 2 + i*0.08) * 3 + (i % 3);
+          snap.push({ util: Math.min(98, Math.max(55, Math.round(util))), temp: Math.round(Math.max(20, Math.min(29, temp))) });
+        }
+        rackData.push(snap);
+      }
+      function openRackModal(rackId) {
+        const snap = rackData[rackId - 1];
+        const d = snap[rackIndex];
+        const rul = rackId === 3 || rackId === 15 ? 18 : 340;
+        const zone = 'A' + (Math.floor((rackId - 1) / 12) + 1);
+        const alerts = rackId === 3 ? ['Cooling circuit pressure rise (preventive, 2 days ago)'] : [];
+        document.getElementById('rack-modal-title').textContent = 'Rack R' + rackId;
+        document.getElementById('rack-modal-util').textContent = d.util + '%';
+        document.getElementById('rack-modal-temp').textContent = d.temp + ' °C';
+        document.getElementById('rack-modal-rul').textContent = rul + ' days';
+        document.getElementById('rack-modal-zone').textContent = zone;
+        const listEl = document.getElementById('rack-modal-alerts');
+        listEl.innerHTML = alerts.length ? alerts.map(a => '<li>' + a + '</li>').join('') : '<li>No events in 30 days</li>';
+        document.getElementById('rack-modal').classList.add('open');
+        document.getElementById('rack-modal').setAttribute('aria-hidden', 'false');
+      }
+      function renderRacks(idx) {
+        rackGrid.innerHTML = '';
+        rackData.forEach((snap, i) => {
+          const d = snap[idx];
+          const cell = document.createElement('div');
+          cell.className = 'rack-cell animate pulse util-' + (d.util >= 90 ? 90 : d.util >= 70 ? 70 : 0);
+          cell.innerHTML = 'R' + (i+1) + '<span class="rack-temp">' + d.temp + '°</span>';
+          cell.title = 'Rack ' + (i+1) + ' — ' + d.util + '%, ' + d.temp + ' °C (click for details)';
+          cell.dataset.rackId = i + 1;
+          cell.style.cursor = 'pointer';
+          cell.addEventListener('click', function() { openRackModal(parseInt(cell.dataset.rackId, 10)); });
+          rackGrid.appendChild(cell);
+        });
+        if (rackTimeLabel) rackTimeLabel.textContent = times[idx];
+      }
+      renderRacks(0);
+      if (rackPlayBtn) {
+        rackPlayBtn.addEventListener('click', function() {
+          if (rackInterval) {
+            clearInterval(rackInterval);
+            rackInterval = null;
+            rackPlayBtn.textContent = 'Start';
+          } else {
+            rackInterval = setInterval(function() {
+              rackIndex = (rackIndex + 1) % RACK_SNAPSHOTS;
+              renderRacks(rackIndex);
+            }, 2200);
+            rackPlayBtn.textContent = 'Stop';
+          }
+        });
+      }
+    }
+    const rackModal = document.getElementById('rack-modal');
+    const rackModalClose = document.getElementById('rack-modal-close');
+    if (rackModal) {
+      function closeRackModal() { rackModal.classList.remove('open'); rackModal.setAttribute('aria-hidden', 'true'); }
+      if (rackModalClose) rackModalClose.addEventListener('click', closeRackModal);
+      rackModal.addEventListener('click', function(e) { if (e.target === rackModal) closeRackModal(); });
+    }
+    const incidentTimelineEl = document.getElementById('incident-timeline-vis');
+    if (incidentTimelineEl) {
+      const slots = [
+        { label: 'Wk1', events: [] },
+        { label: 'Wk2', events: [{ type: 'preventive', short: 'CDU' }] },
+        { label: 'Wk3', events: [] },
+        { label: 'Wk4', events: [{ type: 'preventive', short: 'B2' }] }
+      ];
+      let html = '';
+      slots.forEach(s => {
+        html += '<div class="slot"><div style="display:flex;gap:2px;align-items:flex-end;">';
+        s.events.forEach(e => {
+          html += '<div class="bubble ' + e.type + '" title="' + (e.type === 'preventive' ? 'Preventive' : e.type) + '">' + (e.short || '') + '</div>';
+        });
+        html += '</div><span class="slot-label">' + s.label + '</span></div>';
+      });
+      incidentTimelineEl.innerHTML = html;
+    }
+    Chart.defaults.color = '#8b949e';
+    Chart.defaults.borderColor = '#30363d';
+    Chart.defaults.font.family = "'Outfit', sans-serif";
+    const accent = '#00d4aa';
+    const mlColor = '#d29922';
+    const powerFact24 = [8.2,8.0,7.9,7.8,8.1,8.5,9.2,10.1,10.8,11.2,11.5,11.8,11.9,12.0,11.8,11.5,11.2,10.8,10.2,9.8,9.5,9.2,8.8,8.4];
+    const powerMl24 = [8.2,8.0,7.9,7.8,8.1,8.5,9.2,10.1,10.8,11.2,11.5,11.8,11.9,12.0,11.9,11.6,11.3,11.0,10.4,10.0,9.6,9.3,9.0,8.6];
+    const tempFact24 = [23,23.5,24,24,24.5,25,25.5,26,26.5,27,27,26.5,26,25.5,25,24.5,24,24,23.5,23.5,23,23,23,23.5];
+    const tempMl24 = [23,23.5,24,24,24.5,25,25.5,26,26.5,27,27,26.8,26.5,26,25.5,25.2,24.8,24.5,24.2,24,23.8,23.5,23.3,23.2];
+    const delta = 0.35;
+    function getPowerData(range) {
+      if (range === '7d') {
+        const labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+        const f = [8.5, 9.2, 10.5, 11.2, 11.8, 11.0, 9.5];
+        const m = [8.5, 9.3, 10.6, 11.3, 11.9, 11.1, 9.4];
+        return {
+          labels,
+          datasets: [
+            { label: 'Actual', data: f, borderColor: accent, borderWidth: 2, fill: false, tension: 0.3 },
+            { label: '80% CI low', data: m.map(v => v - delta), borderColor: 'transparent', backgroundColor: mlColor + '25', fill: '+1', tension: 0.3 },
+            { label: '80% CI high', data: m.map(v => v + delta), borderColor: 'transparent', fill: false, tension: 0.3 },
+            { label: 'ML forecast', data: m, borderColor: mlColor, borderWidth: 2, borderDash: [6,4], fill: false, tension: 0.3 }
+          ]
+        };
+      }
+      return {
+        labels: Array.from({length:24}, (_,i) => i + ':00'),
+        datasets: [
+          { label: 'Actual', data: powerFact24, borderColor: accent, borderWidth: 2, fill: false, tension: 0.3 },
+          { label: '80% CI low', data: powerMl24.map(v => v - delta), borderColor: 'transparent', backgroundColor: mlColor + '25', fill: '+1', tension: 0.3 },
+          { label: '80% CI high', data: powerMl24.map(v => v + delta), borderColor: 'transparent', fill: false, tension: 0.3 },
+          { label: 'ML forecast', data: powerMl24, borderColor: mlColor, borderWidth: 2, borderDash: [6,4], fill: false, tension: 0.3 }
+        ]
+      };
+    }
+    function getTempData(range) {
+      if (range === '7d') {
+        const labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+        const f = [23.5, 24.5, 26, 26.5, 27, 25.5, 24];
+        const m = [23.6, 24.6, 26.1, 26.6, 27.1, 25.4, 24.1];
+        const d = 0.4;
+        return {
+          labels,
+          datasets: [
+            { label: 'Actual', data: f, borderColor: accent, borderWidth: 2, fill: false, tension: 0.3 },
+            { label: '80% CI low', data: m.map(v => v - d), borderColor: 'transparent', backgroundColor: mlColor + '25', fill: '+1', tension: 0.3 },
+            { label: '80% CI high', data: m.map(v => v + d), borderColor: 'transparent', fill: false, tension: 0.3 },
+            { label: 'ML forecast', data: m, borderColor: mlColor, borderWidth: 2, borderDash: [6,4], fill: false, tension: 0.3 }
+          ]
+        };
+      }
+      const d = 0.4;
+      return {
+        labels: Array.from({length:24}, (_,i) => i + ':00'),
+        datasets: [
+          { label: 'Actual', data: tempFact24, borderColor: accent, borderWidth: 2, fill: false, tension: 0.3 },
+          { label: '80% CI low', data: tempMl24.map(v => v - d), borderColor: 'transparent', backgroundColor: mlColor + '25', fill: '+1', tension: 0.3 },
+          { label: '80% CI high', data: tempMl24.map(v => v + d), borderColor: 'transparent', fill: false, tension: 0.3 },
+          { label: 'ML forecast', data: tempMl24, borderColor: mlColor, borderWidth: 2, borderDash: [6,4], fill: false, tension: 0.3 }
+        ]
+      };
+    }
+    let currentTimeRange = '24h';
+    const legendFilterCI = (item) => !item.text.includes('80% CI');
+    const chartPower = new Chart(document.getElementById('chart-power'), {
+      type: 'line',
+      data: getPowerData('24h'),
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top', labels: { filter: legendFilterCI } } }, scales: { y: { min: 6, max: 14 } } }
+    });
+    const chartTemp = new Chart(document.getElementById('chart-temp-fact-ml'), {
+      type: 'line',
+      data: getTempData('24h'),
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top', labels: { filter: legendFilterCI } } }, scales: { y: { min: 20, max: 30 } } }
+    });
+    document.querySelectorAll('#time-range-wrap button').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const range = this.dataset.range;
+        if (range === currentTimeRange) return;
+        currentTimeRange = range;
+        document.querySelectorAll('#time-range-wrap button').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        chartPower.data = getPowerData(range === '7d' ? '7d' : '24h');
+        chartPower.update();
+        chartTemp.data = getTempData(range === '7d' ? '7d' : '24h');
+        chartTemp.update();
+      });
+    });
+    const thermalCtx = document.getElementById('chart-thermal').getContext('2d');
+    const thermalGrad = thermalCtx.createLinearGradient(0,0,0,220);
+    thermalGrad.addColorStop(0, '#00d4aa');
+    thermalGrad.addColorStop(0.5, '#d29922');
+    thermalGrad.addColorStop(1, '#f85149');
+    new Chart(document.getElementById('chart-thermal'), {
+      type: 'bar',
+      data: {
+        labels: ['A1','A2','A3','A4','A5','A6','A7','A8'],
+        datasets: [{ label: '°C', data: [24,26,25,28,27,26,29,25], backgroundColor: thermalGrad }]
+      },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { min: 18, max: 32 } } }
+    });
+    new Chart(document.getElementById('chart-energy-forecast'), {
+      type: 'line',
+      data: {
+        labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+        datasets: [
+          { label: 'Actual', data: [11.8,12.0,12.2,null,null,null,null], borderColor: accent, borderWidth: 2, tension: 0.3 },
+          { label: 'ML forecast', data: [11.8,12.0,12.2,12.1,12.5,11.2,10.8], borderColor: mlColor, borderWidth: 2, borderDash: [6,4], tension: 0.3 },
+          { label: 'Limit', data: [15,15,15,15,15,15,15], borderColor: '#8b949e', borderDash: [4,4] }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } }, scales: { y: { min: 9 } } }
+    });
+    new Chart(document.getElementById('chart-leak-risk'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Risk'],
+        datasets: [{ data: [12, 88], backgroundColor: [accent, '#21262d'], borderWidth: 0 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
+    });
+    new Chart(document.getElementById('chart-cooling-temp-ml'), {
+      type: 'line',
+      data: {
+        labels: Array.from({length:24}, (_,i) => i + ' h'),
+        datasets: [
+          { label: 'Actual', data: [17.2,17.4,17.6,17.8,18,18.2,18.4,18.5,18.6,18.8,19,18.9,18.7,18.5,18.3,18.1,18,17.9,17.8,17.7,17.6,17.5,17.4,17.3], borderColor: accent, borderWidth: 2, fill: false, tension: 0.3 },
+          { label: 'ML forecast', data: [17.2,17.4,17.6,17.8,18,18.2,18.4,18.5,18.6,18.8,19,19.1,19,18.9,18.8,18.6,18.5,18.3,18.2,18.1,18,17.9,17.8,17.7], borderColor: mlColor, borderWidth: 2, borderDash: [6,4], fill: false, tension: 0.3 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } }, scales: { y: { min: 16, max: 20 } } }
+    });
+    new Chart(document.getElementById('chart-leak-risk-time'), {
+      type: 'line',
+      data: {
+        labels: ['−72 h','−60 h','−48 h','−36 h','−24 h','−12 h','Now','+12 h','+24 h','+48 h','+72 h'],
+        datasets: [
+          { label: 'Risk index', data: [8,9,10,10,11,11,12,13,14,15,16], borderColor: accent, borderWidth: 2, backgroundColor: accent + '22', fill: true, tension: 0.3 },
+          { label: 'ML forecast', data: [8,9,10,10,11,11,12,13,14,15,17], borderColor: mlColor, borderWidth: 2, borderDash: [6,4], fill: false, tension: 0.3 },
+          { label: '40% threshold', data: [40,40,40,40,40,40,40,40,40,40,40], borderColor: '#f85149', borderWidth: 1, borderDash: [2,2], fill: false }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } }, scales: { y: { min: 0, max: 50 } } }
+    });
+    new Chart(document.getElementById('chart-cooling'), {
+      type: 'line',
+      data: {
+        labels: Array.from({length:12}, (_,i) => i + ' h'),
+        datasets: [
+          { label: 'Actual (pressure, bar)', data: [2.2,2.25,2.3,2.35,2.4,2.38,2.4,2.42,2.5,2.45,2.4,2.4], borderColor: accent, borderWidth: 2, yAxisID: 'y1' },
+          { label: 'ML forecast', data: [2.2,2.25,2.3,2.35,2.4,2.39,2.42,2.45,2.48,2.46,2.44,2.42], borderColor: mlColor, borderWidth: 2, borderDash: [6,4], yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { display: false }, y1: { type: 'linear', position: 'left', min: 2, max: 2.8 } }
+      }
+    });
+    new Chart(document.getElementById('chart-incidents-timeline'), {
+      type: 'line',
+      data: {
+        labels: ['Week 1','Week 2','Week 3','Week 4'],
+        datasets: [
+          { label: 'Events (preventive)', data: [0,1,0,1], borderColor: mlColor, backgroundColor: mlColor + '44', fill: true, tension: 0.3 },
+          { label: 'Critical incidents', data: [0,0,0,0], borderColor: '#f85149', backgroundColor: '#f8514922', fill: true, tension: 0.3 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } }, scales: { y: { beginAtZero: true, max: 3 } } }
+    });
+    new Chart(document.getElementById('chart-racks'), {
+      type: 'bar',
+      data: {
+        labels: ['R12','R18','R5','R22','R8','R31','R3','R15','R9','R27'],
+        datasets: [{ label: '% utilization', data: [92,88,85,84,82,80,78,76,74,72], backgroundColor: accent }]
+      },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { max: 100 } } }
+    });
+    new Chart(document.getElementById('chart-load'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Compute','Network','Cooling','Other'],
+        datasets: [{ data: [68, 12, 15, 5], backgroundColor: [accent, '#3fb950', '#d29922', '#8b949e'] }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+    new Chart(document.getElementById('chart-competitors-pains'), {
+      type: 'bar',
+      data: {
+        labels: ['Nexus DC','Vertiv','Schneider','Equinix','Meukron','Octorange','Aligned'],
+        datasets: [{
+          label: 'Pains addressed (of 3)',
+          data: [3, 1, 1, 1, 1, 1, 2],
+          backgroundColor: [accent, '#8b949e','#8b949e','#8b949e','#8b949e','#8b949e','#d29922']
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { max: 3, ticks: { stepSize: 1 } } }
+      }
+    });
+    document.querySelectorAll('.report-card').forEach(el => {
+      el.addEventListener('click', () => alert('In demo mode report export is not available. In the real product this would export PDF/Excel.'));
+    });
+  </script>
+</body>
+</html>
