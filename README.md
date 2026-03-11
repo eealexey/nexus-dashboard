@@ -17,20 +17,19 @@ Interactive prototype of a data center management platform based on market and t
 
 **Option 1** — script (from project folder):
 ```bash
-cd /home/cursor/datacenter-platform-dashboard
+cd /home/datacenter-platform-dashboard
 chmod +x serve.sh && ./serve.sh
 ```
 
 **Option 2** — manual:
 ```bash
-cd /home/cursor/datacenter-platform-dashboard
+cd /home/datacenter-platform-dashboard
 python3 -m http.server 8080
 ```
 
 Open in browser: **http://localhost:8080**  
 Or open `index.html` directly (some features may work without a server).
 
-**If localhost doesn't work** (remote environment, VPN) — see **[ОТКРЫТЬ_ДАШБОРД.md](ОТКРЫТЬ_ДАШБОРД.md)** (port forwarding in Cursor and other options).
 
 Dashboard data is sample/demo only.
 
